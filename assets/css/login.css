@@ -1,0 +1,19 @@
+/* Isolated styles for the admin login page without affecting dashboard/blog */
+body.login-page{background:#f0f2f5}
+.login-page .auth-wrap{max-width:420px;margin:80px auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:24px 22px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.login-page h1{margin:0 0 16px;font-size:24px;font-weight:800;color:#111827}
+.login-page label{display:block;margin-top:12px;font-weight:600;color:#374151}
+.login-page input{width:100%;margin-top:6px;padding:10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;background:#fff}
+.login-page input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.login-page .btn{width:100%;margin-top:16px;background:#2563eb;color:#fff;border:0;border-radius:6px;padding:10px 14px;font-weight:700;cursor:pointer}
+.login-page .btn:hover{filter:brightness(0.95)}
+.login-page .hint{font-size:12px;color:#6b7280;margin-top:10px;text-align:center}
+.login-page .error{display:none;color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+.login-page .password-wrap{position:relative}
+.login-page .password-wrap input{padding-right:44px;}
+.login-page .password-wrap .toggle-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent;border:0;border-radius:6px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:#6b7280;cursor:pointer;padding:0;outline:none}
+.login-page .password-wrap .toggle-eye:hover{background:transparent;color:#111827}
+.login-page .password-wrap .toggle-eye:focus-visible{box-shadow:0 0 0 3px rgba(37,99,235,.35);border-radius:6px}
+.login-page .password-wrap .icon{width:18px;height:18px}
+/* Prevent global layout utilities from altering login card */
+.login-page .layout,.login-page .sidebar,.login-page .topbar{display:block;height:auto}
