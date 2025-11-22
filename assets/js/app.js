@@ -57,27 +57,61 @@
     } catch (e) { return null; }
   }
 
-  async function apiFetch(url, options) {
-    const token = getToken();
-    const opts = Object.assign({ headers: {} }, options || {});
-    if (token) {
-      opts.headers['Authorization'] = 'Bearer ' + token;
-      opts.headers['X-Auth-Token'] = token;
-    }
-    if (!opts.headers['Content-Type'] && opts.body && !(opts.body instanceof FormData)) {
-      opts.headers['Content-Type'] = 'application/json';
-    }
-    const resp = await fetch(url, opts);
-    let data = null;
-    try {
-      data = await resp.json();
-    } catch (_) {}
-    if (!resp.ok) {
-      const msg = data && data.error ? data.error : ('HTTP ' + resp.status);
-      throw new Error(msg);
-    }
-    return data;
+async function apiFetch(url, options) {
+  const token = getToken();
+  const opts = Object.assign({ headers: {} }, options || {});
+  if (token) {
+    opts.headers['Authorization'] = 'Bearer ' + token;
+    opts.headers['X-Auth-Token'] = token;
   }
+  if (!opts.headers['Content-Type'] && opts.body && !(opts.body instanceof FormData)) {
+    opts.headers['Content-Type'] = 'application/json';
+  }
+
+  async function refreshAccessToken() {
+    try {
+      if (!window.API || !API.refresh) return false;
+      const r = await fetch(API.refresh, { method: 'POST', credentials: 'include' });
+      let j = null;
+      try { j = await r.json(); } catch (_) {}
+      if (r.ok && j && j.token) {
+        try { localStorage.setItem('jwt_token', j.token); } catch (_) {}
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  let resp = await fetch(url, opts);
+  let data = null;
+  try { data = await resp.json(); } catch (_) {}
+
+  if (resp.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      const newToken = getToken();
+      const retryOpts = Object.assign({ headers: {} }, options || {});
+      if (newToken) {
+        retryOpts.headers = Object.assign({}, retryOpts.headers || {}, {
+          'Authorization': 'Bearer ' + newToken,
+          'X-Auth-Token': newToken
+        });
+      }
+      if (!retryOpts.headers['Content-Type'] && retryOpts.body && !(retryOpts.body instanceof FormData)) {
+        retryOpts.headers['Content-Type'] = 'application/json';
+      }
+      resp = await fetch(url, retryOpts);
+      data = null;
+      try { data = await resp.json(); } catch (_) {}
+    }
+  }
+
+  if (!resp.ok) {
+    const msg = data && data.error ? data.error : ('HTTP ' + resp.status);
+    throw new Error(msg);
+  }
+  return data;
+}
 
   function initPostsDataTable() {
     const table = document.getElementById('postsTable');
@@ -277,14 +311,27 @@
     }
   }
 
-  function doLogout() {
+function doLogout() {
+  const go = function () {
     try {
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('user_role');
       localStorage.removeItem('user_name');
     } catch (_) {}
     window.location.href = (window.API && API.login) ? API.login : '/login';
+  };
+  try {
+    if (window.API && API.logout) {
+      fetch(API.logout, { method: 'POST', credentials: 'include' })
+        .then(function () { go(); })
+        .catch(function () { go(); });
+    } else {
+      go();
+    }
+  } catch (_) {
+    go();
   }
+}
 
   function initSidebarDropdown() {
     const postsToggle = document.getElementById('postsToggle');

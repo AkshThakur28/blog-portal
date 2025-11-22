@@ -29,6 +29,5 @@ $route['api/posts/(:num)']['get'] = 'api/posts/show/$1';
 $route['posts/create']['get'] = 'dashboard/create';
 $route['posts/edit/(:num)']['get'] = 'dashboard/edit/$1';
 
-/* Dev helpers (non-production) */
-$route['dev-login']['get'] = 'auth/dev_login';
-$route['set-token']['get'] = 'auth/set_token';
+$route['api/refresh']['post'] = 'auth/refresh';
+$route['api/logout']['post'] = 'auth/logout';

@@ -7,6 +7,7 @@ class Auth extends CI_Controller
     {
         parent::__construct();
         $this->load->model('User_model', 'users');
+        $this->load->model('Refresh_token_model', 'refreshTokens');
         $this->load->helper(array('jwt'));
         $this->output->set_content_type('application/json');
     }
@@ -48,6 +49,22 @@ class Auth extends CI_Controller
             return $this->_server_error('Failed to issue token');
         }
 
+        $refreshTtl = (int) env('REFRESH_TTL', 1209600);
+        if (!isset($this->refreshTokens)) {
+            $this->load->model('Refresh_token_model', 'refreshTokens');
+        }
+        $rt = $this->refreshTokens->create_for_user((int)$user['id'], $refreshTtl);
+        if ($rt && isset($rt['token'])) {
+            $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+            setcookie('refresh_token', $rt['token'], array(
+                'expires'  => strtotime($rt['expires_at']),
+                'path'     => '/',
+                'secure'   => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ));
+        }
+
         echo json_encode(array(
             'token' => $token,
             'user'  => array(
@@ -59,62 +76,84 @@ class Auth extends CI_Controller
         ), JSON_UNESCAPED_SLASHES);
     }
 
-    public function set_token()
+
+
+    public function refresh()
     {
-        $this->output->set_content_type('text/html');
-        $token = (string) $this->input->get('token', true);
-        $name = (string) $this->input->get('name', true);
-        if ($name === '') { $name = 'User'; }
-        if ($token === '') {
-            echo '<!doctype html><meta charset="utf-8"><p>Missing token</p>';
-            return;
+        $this->output->set_content_type('application/json');
+
+        $cookie = isset($_COOKIE['refresh_token']) ? (string) $_COOKIE['refresh_token'] : '';
+        if ($cookie === '') {
+            return $this->_unauthorized('Missing refresh token');
         }
-        $dash = site_url('dashboard');
-        $html = '<!doctype html><meta charset="utf-8"><title>Setting token...</title>'
-              . '<script>try{localStorage.setItem("jwt_token",' . json_encode($token) . ');localStorage.setItem("user_name",' . json_encode($name) . ');}catch(e){}location.href=' . json_encode($dash) . ';</script>'
-              . '<p>Redirecting...</p>';
-        echo $html;
-    }
 
-    public function dev_login()
-    {
-        $this->output->set_content_type('text/html');
+        if (!isset($this->refreshTokens)) {
+            $this->load->model('Refresh_token_model', 'refreshTokens');
+        }
 
-        $email = (string) $this->input->get('email', true);
-        $password = (string) $this->input->get('password');
+        $row = $this->refreshTokens->find_valid_row($cookie);
+        if (!$row) {
+            return $this->_unauthorized('Invalid or expired refresh token');
+        }
 
-        if ($email === '') { $email = 'admin@example.com'; }
-        if ($password === '') { $password = 'Admin@123'; }
+        $rot = $this->refreshTokens->rotate($cookie, (int) env('REFRESH_TTL', 1209600));
+        if (!$rot) {
+            return $this->_unauthorized('Invalid or expired refresh token');
+        }
 
-        $user = $this->users->verify_password($email, $password);
+        $userId = (int) $row['user_id'];
+        $user   = $this->users->get_by_id($userId);
         if (!$user) {
-            echo '<!doctype html><meta charset="utf-8"><p>Invalid credentials</p>';
-            return;
+            return $this->_unauthorized('User not found');
         }
 
         $claims = array(
-            'sub'  => (int)$user['id'],
+            'sub'  => $userId,
             'role' => $user['role'],
         );
-
         $ttl = (int) env('JWT_TTL', 3600);
         try {
             $token = jwt_encode($claims, $ttl);
         } catch (Throwable $e) {
-            echo '<!doctype html><meta charset="utf-8"><p>Failed to issue token</p>';
-            return;
+            return $this->_server_error('Failed to issue token');
         } catch (Exception $e) {
-            echo '<!doctype html><meta charset="utf-8"><p>Failed to issue token</p>';
-            return;
+            return $this->_server_error('Failed to issue token');
         }
 
-        $dash = site_url('dashboard');
-        $name = $user['name'];
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+        setcookie('refresh_token', $rot['token'], array(
+            'expires'  => strtotime($rot['expires_at']),
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ));
 
-        $html = '<!doctype html><meta charset="utf-8"><title>Logging in...</title>'
-              . '<script>try{localStorage.setItem("jwt_token",' . json_encode($token) . ');localStorage.setItem("user_name",' . json_encode($name) . ');}catch(e){}location.href=' . json_encode($dash) . ';</script>'
-              . '<p>Redirecting to dashboard...</p>';
-        echo $html;
+        echo json_encode(array('token' => $token), JSON_UNESCAPED_SLASHES);
+    }
+
+    public function logout()
+    {
+        $this->output->set_content_type('application/json');
+
+        $cookie = isset($_COOKIE['refresh_token']) ? (string) $_COOKIE['refresh_token'] : '';
+        if ($cookie !== '') {
+            if (!isset($this->refreshTokens)) {
+                $this->load->model('Refresh_token_model', 'refreshTokens');
+            }
+            $this->refreshTokens->revoke_by_token($cookie);
+        }
+
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+        setcookie('refresh_token', '', array(
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ));
+
+        echo json_encode(array('logged_out' => true), JSON_UNESCAPED_SLASHES);
     }
 
     private function _bad_request($message)

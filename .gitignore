@@ -24,3 +24,6 @@ Thumbs.db
 
 # Zip archives
 *.zip
+
+# DB dumps (keep seed script under sql/)
+blog_ci.sql

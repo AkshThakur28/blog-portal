@@ -11,6 +11,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             createPost: "<?php echo site_url('posts/create'); ?>",
             editPostBase: "<?php echo site_url('posts/edit/'); ?>",
             viewPostBase: "<?php echo site_url('post/'); ?>",
+            refresh: "<?php echo site_url('api/refresh'); ?>",
+            logout: "<?php echo site_url('api/logout'); ?>",
             perPage: <?php echo (int) env('PAGINATION_PER_PAGE', 10); ?>
           };
         </script>

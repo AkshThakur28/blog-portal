@@ -17,7 +17,6 @@ Folders
 - assets/            JS/CSS assets
 - system/            CodeIgniter framework core
 - sql/               SQL schema + seed
-- docs/              Implementation Guide (for PDF export)
 - index.php          Front controller at project root
 
 Setup
@@ -109,7 +108,7 @@ Libraries Used
 Assumptions and Limitations
 
 - Minimal UI
-- Token refresh endpoint not implemented (optional bonus)
+- Token refresh endpoint implemented (optional bonus)
 - Rich text editing limited to basic allowed HTML tags
 - Slug format: unique with -1, -2 collision handling on create; slug remains stable on update
 - Pagination: 10 per page by default (configurable via .env)
@@ -134,6 +133,10 @@ Endpoints Summary (Base URL includes /index.php/)
   Hard delete (admin only) — permanently removes the post
 - GET /index.php/api/pixabay/search?q=flowers&type=image&page=1
   Response: { hits: [...], totalHits: N } (sanitized, simplified)
+- POST /index.php/api/refresh
+  Response: { token } (rotates HttpOnly refresh cookie and issues new access JWT)
+- POST /index.php/api/logout
+  Response: { logged_out: true } (revokes refresh token and clears cookie)
 
 How to Fill .env (Sample)
 
@@ -144,13 +147,14 @@ DB_NAME=blog_ci
 DB_USER=root
 DB_PASS=
 JWT_SECRET=change_this_to_a_long_random_string
+REFRESH_TTL=1209600
 PIXABAY_API_KEY=your_pixabay_api_key_here
 PAGINATION_PER_PAGE=10
 
 Test Accounts
 
 Admin (for review):
-- Email: adarsh@gmail.com
+- Email: admin@example.com
 - Password: Admin@123
 
 Other seeded accounts (including non-admin users) are listed in sql/schema_seed.sql.
@@ -183,7 +187,3 @@ What is needed for Pixabay integration
 - A valid free API key from https://pixabay.com/api/docs/
 - Outbound HTTPS access from PHP (enable php_curl if available; otherwise allow_url_fopen)
 - Put the key in .env as PIXABAY_API_KEY. Do not place the key in frontend code.
-
-Documentation
-
-- See docs/IMPLEMENTATION.md for a comprehensive guide. You can export it to PDF via VS Code Markdown preview (Print to PDF) or any Markdown viewer’s Print dialog.
